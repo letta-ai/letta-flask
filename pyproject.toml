@@ -1,9 +1,11 @@
 [project]
 name = "letta-flask"
 version = "0.1.0"
-description = "Add your description here"
+description = "A flask extension to build with Letta with ease"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "flask>=3.1.0",
     "pre-commit>=4.1.0",
+    "typing>=3.10.0.0",
 ]
