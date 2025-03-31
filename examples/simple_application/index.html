@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title of the document</title>
+</head>
+<body>
+<div id="agent-name"></div>
+    <div id="messages"></div>
+    <form id="message-form">
+        <input type="text" />
+        <button type="submit">Send</button>
+    </form>
+</body>
+
+<script>
+    const agentId = 'agent-16c02f12-bf64-459d-aa8f-68d6aad3f69a';
+    // Initialize Letta SDK
+    fetch(`/v1/agents/${agentId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('agent-name').innerText = data.name;
+        });
+
+
+    function addMessages(messages = []) {
+        const messagesElement = document.getElementById('messages');
+
+        messages
+            .filter(message => message.message_type === 'assistant_message' || message.message_type === 'user_message')
+            .forEach(message => {
+                const messageElement = document.createElement('div');
+
+                if (message.messageType === 'user_message') {
+                    messageElement.style.textAlign = 'right';
+                }
+
+                messageElement.innerText = message.content;
+                messagesElement.appendChild(messageElement)
+            });
+    }
+
+    fetch(`/v1/agents/${agentId}/messages`)
+        .then(response => response.json())
+        .then(data => {
+           addMessages(data);
+        });
+
+    const form = document.getElementById('message-form');
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const input = form.querySelector('input');
+        const message = input.value;
+        input.value = '';
+
+        addMessages([{ content: message, message_type: 'user_message' }]);
+
+
+        const response = await fetch(`/v1/agents/${agentId}/messages/stream`, {
+            method: "POST",
+            cache: "no-cache",
+            keepalive: true,
+            headers: {
+                'Content-Type': 'application/json',
+                "Accept": "text/event-stream",
+            },
+            body: JSON.stringify({
+                messages: [{
+                    content: message,
+                    role: 'user'
+                }]
+            })
+        });
+
+        const reader = response.body.getReader();
+
+        while (true) {
+            const {value, done} = await reader.read();
+            if (done) break;
+
+            console.log('get.message', new TextDecoder().decode(value));
+        }
+    });
+
+</script>
+
+</html>

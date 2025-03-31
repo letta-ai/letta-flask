@@ -1,0 +1,17 @@
+[project]
+name = "simple-application"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.1.0",
+    "pre-commit>=4.1.0",
+    "requests>=2.32.3",
+    "typing>=3.10.0.0",
+    "letta-flask>999999",
+    "letta-client>=0.1.67",
+]
+
+[tool.uv.sources]
+letta-flask = { workspace = true}

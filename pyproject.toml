@@ -6,6 +6,25 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "flask>=3.1.0",
+    "letta-client>=0.1.67",
     "pre-commit>=4.1.0",
+    "requests>=2.32.3",
     "typing>=3.10.0.0",
 ]
+classifiers = [
+    "Framework :: Flask",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Typing :: Typed",
+]
+
+[build-system]
+requires = ["flit_core >=3.3.0"]
+build-backend = "flit_core.buildapi"
+
+[tool.uv.workspace]
+members = ["examples/simple_application"]
+
+
+
+
