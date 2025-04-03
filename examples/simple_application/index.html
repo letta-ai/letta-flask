@@ -4,7 +4,7 @@
     <title>Title of the document</title>
 </head>
 <body>
-<div id="agent-name"></div>
+    <div id="agent-name"></div>
     <div id="messages"></div>
     <form id="message-form">
         <input type="text" />
@@ -13,7 +13,7 @@
 </body>
 
 <script>
-    const agentId = 'agent-16c02f12-bf64-459d-aa8f-68d6aad3f69a';
+    const agentId = 'agent-091924fb-4c12-42dd-a9cf-b4005e97e73b'; // YOUR AGENT ID HERE
     // Initialize Letta SDK
     fetch(`/v1/agents/${agentId}`)
         .then(response => response.json())
@@ -21,21 +21,21 @@
             document.getElementById('agent-name').innerText = data.name;
         });
 
+    function addMessage(content, type) {
+        const messagesElement = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message');
+        messageElement.classList.add(type === 'user_message' ? 'user-message' : 'assistant-message');
+        messageElement.innerText = content;
+        messagesElement.appendChild(messageElement);
+        return messageElement;
+    }
 
     function addMessages(messages = []) {
-        const messagesElement = document.getElementById('messages');
-
         messages
             .filter(message => message.message_type === 'assistant_message' || message.message_type === 'user_message')
             .forEach(message => {
-                const messageElement = document.createElement('div');
-
-                if (message.messageType === 'user_message') {
-                    messageElement.style.textAlign = 'right';
-                }
-
-                messageElement.innerText = message.content;
-                messagesElement.appendChild(messageElement)
+                addMessage(message.content, message.message_type);
             });
     }
 
@@ -53,35 +53,61 @@
         const message = input.value;
         input.value = '';
 
-        addMessages([{ content: message, message_type: 'user_message' }]);
+        // Add user message to UI
+        addMessage(message, 'user_message');
 
+        try {
+            const response = await fetch('/stream', {
+                method: "POST",
+                cache: "no-cache",
+                keepalive: true,
+                headers: {
+                    'Content-Type': 'application/json',
+                    "Accept": "text/event-stream",
+                },
+                body: JSON.stringify({
+                    content: message
+                })
+            });
 
-        const response = await fetch(`/v1/agents/${agentId}/messages/stream`, {
-            method: "POST",
-            cache: "no-cache",
-            keepalive: true,
-            headers: {
-                'Content-Type': 'application/json',
-                "Accept": "text/event-stream",
-            },
-            body: JSON.stringify({
-                messages: [{
-                    content: message,
-                    role: 'user'
-                }]
-            })
-        });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let assistantMessage = null;
+            let currentContent = '';
 
-        const reader = response.body.getReader();
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
 
-        while (true) {
-            const {value, done} = await reader.read();
-            if (done) break;
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
 
-            console.log('get.message', new TextDecoder().decode(value));
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6)); // line.slice(6) removes the "data: " prefix
+                            if (data.content) {
+                                currentContent += data.content;
+                                if (!assistantMessage) {
+                                    assistantMessage = addMessage(currentContent, 'assistant_message');
+                                } else {
+                                    assistantMessage.innerText = currentContent;
+                                }
+                            }
+                            if (data.error) {
+                                console.error('Stream error:', data.error);
+                                addMessage('Error: ' + data.error, 'assistant_message');
+                            }
+                        } catch (e) {
+                            console.error('Error parsing JSON:', e, line);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            addMessage('Error: Could not get response', 'assistant_message');
         }
     });
-
 </script>
-
 </html>
