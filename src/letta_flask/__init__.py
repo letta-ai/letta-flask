@@ -1,7 +1,7 @@
 from typing import TypedDict, Optional
 from flask import Flask, request, Response, stream_with_context
 import requests
-from letta_client import Letta
+from letta_client import Letta, MessageCreate
 import json
 import re
 
@@ -34,7 +34,7 @@ class LettaFlask:
                 # /v1/agents/{agent_id}/messages/stream
                 agent_id = re.search(r"agents/(.*?)/messages/stream", path).group(1)
 
-                return messages_stream(agent_id=agent_id)
+                return self.messages_stream(agent_id=agent_id)
 
             # Build the target URL
             target_url = f"{self.base_url}/v1/{path}"
@@ -68,20 +68,43 @@ class LettaFlask:
 
             return response
 
-        def messages_stream(agent_id: str) -> Response:
-            data = request.get_data()
+    def messages_stream(self, agent_id: str) -> Response:
+        data = request.get_data()
 
-            letta = Letta(base_url=self.base_url, token=self.api_key)
-            parsed = json.loads(data)
+        letta = Letta(base_url=self.base_url, token=self.api_key)
+        parsed = json.loads(data)
 
-            response = letta.agents.messages.create_stream(
-                agent_id=agent_id, messages=parsed["messages"]
-            )
+        def streamer():
+            try:
+                response = letta.agents.messages.create_stream(
+                    agent_id=agent_id,
+                    messages=[
+                        MessageCreate(
+                            role="user", content=parsed.get("content", "content")
+                        )
+                    ],
+                )
 
-            def streamer():
                 for chunk in response:
-                    yield chunk
+                    if chunk:
+                        print("Raw chunk:", chunk)
+                        if chunk.message_type == "reasoning_message":
+                            data = {
+                                "type": chunk.message_type,
+                                "reasoning": chunk.reasoning,
+                            }
+                        elif chunk.message_type == "assistant_message":
+                            data = {
+                                "type": chunk.message_type,
+                                "content": chunk.content,
+                            }
+                        yield f"data: {json.dumps(data)}\n\n".encode("utf-8")
+            except Exception as e:
+                print("Error in stream:", e)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
 
-            return app.response_class(
-                stream_with_context(streamer()),
-            )
+        return Response(
+            stream_with_context(streamer()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
