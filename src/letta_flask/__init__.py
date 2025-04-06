@@ -58,9 +58,13 @@ class LettaFlask:
             )
 
             # Create a Flask response with the same content
-            response = Response(
-                resp.content, resp.status_code, headers=dict(resp.headers)
-            )
+            headers = dict(resp.headers)
+
+            # remove `Transfer-Encoding` header
+            if "Transfer-Encoding" in headers:
+                del headers["Transfer-Encoding"]
+
+            response = Response(resp.content, resp.status_code, headers=headers)
 
             return response
 
@@ -77,7 +81,6 @@ class LettaFlask:
             def streamer():
                 for chunk in response:
                     yield chunk
-                    print("a", chunk)
 
             return app.response_class(
                 stream_with_context(streamer()),

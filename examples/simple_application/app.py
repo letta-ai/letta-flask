@@ -7,9 +7,7 @@ app = Flask(__name__)
 # Initialize
 
 letta_flask = LettaFlask(
-    config=LettaFlaskConfig(
-        base_url="http://localhost:8283",
-    )
+    config=LettaFlaskConfig(base_url="https://api.letta.com", api_key="<your-token>")
 )
 
 
